@@ -10,14 +10,12 @@ It unshortens redirects, looks at basic risk signals, shows TLS/WHOIS/security h
 
 ## Screenshots
 
-* Analyzer (main)
+### Analyzer
+![Analyzer](./docs/screenshot-analyzer.png)
 
-  * `![Analyzer](docs/screenshot-analyzer.png)`
+### Live sandbox viewer
+![Live](./docs/screenshot-live.png)
 
-  
-* Live sandbox viewer
-
-  * `![Live](docs/screenshot-live.png)`
 
 ---
 
