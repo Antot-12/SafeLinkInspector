@@ -35,3 +35,5 @@ server/data/
 data/
 *.sqlite
 *.db
+
+app_backup/
