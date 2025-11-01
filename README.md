@@ -1,58 +1,66 @@
 # SafeLink Inspector
 
-A small web app that lets you paste any link and check it safely.
-It unshortens redirects, looks at basic risk signals, shows TLS/WHOIS/security headers, parses forms, and lets you preview the page in a sandboxed viewer.
+A small web app to paste any link and check it safely.
+It unshortens redirects, scores risk with simple heuristics, checks reputation (optional APIs), shows TLS/WHOIS/security headers, inspects forms, and lets you preview the page in a sandboxed viewer on a separate origin.
 
-> Frontend: React (Vite)
-> Backend: Node.js + Express
+Frontend: **React (Vite)** 
+Backend: **Node.js + Express**
 
 ---
 
 ## Screenshots
 
 ### Analyzer
-![Analyzer](./docs/screenshot-analyzer.png)
+
+![Analyzer](docs/screenshot-analyzer.png)
 
 ### Live sandbox viewer
-![Live](./docs/screenshot-live.png)
 
+![Live](docs/screenshot-live.png)
 
 ---
 
 ## Features
 
-* Paste a URL and analyze:
+### Analyze any URL
 
-  * Unshorten redirect chain
-  * Risk score + label
-  * Reputation stubs (GSB, PhishTank, urlscan – off by default until you add keys)
-  * TLS profile (issuer, expiry, SAN vs host)
-  * WHOIS age (domain age in days)
-  * Security headers + Set-Cookie flags (Secure/HttpOnly/SameSite)
-  * Basic network info (IP/ASN/geo) via resolver
-  * Form analysis (actions, cross-domain posts, sensitive fields)
-  * HSTS + HTTP → HTTPS redirect indicator
+* Unshorten redirect chain
+* Risk score + label (with heuristics: IDN, deep subdomains, “login/verify” tokens, long URL, secrets in query)
+* Reputation integrations (off until you add keys):
+
+
+  * Google Safe Browsing (GSB)
+  * PhishTank
+  * urlscan.io (submit private scan)
+  * VirusTotal quick lookup (queues scan if missing)
   
 
-* **Sanitized HTML**: stored server-side with strict CSP, previewed in an iframe
+* TLS profile: issuer, SAN match vs host, protocol, expiry days
+* WHOIS age via RDAP/WHOIS (registrar + age in days)
+* Network info: resolve IP, ASN/Org, geo; optional AbuseIPDB score
+* Security headers + parsed `Set-Cookie` flags (Secure/HttpOnly/SameSite)
+* HSTS present and HTTP→HTTPS redirect indicator
+* Form analysis: action URL, cross-domain posts, sensitive inputs
+* List of 3rd-party hosts seen during page load (if available)
 
+### Views
 
-* **Live (sandboxed)**: separate origin proxy (`/live?url=...`) with CSP, frame-bust fixes, and asset rewriting
+* **Sanitized HTML**: server-stored copy with strict CSP, shown in an iframe
+* **Live (sandboxed)**: separate-origin proxy (`/live?url=...`) with CSP, frame-bust fixes, and asset rewriting
+* Screenshot tab appears only if your backend provides screenshots (optional)
 
+### History
 
-* **History**:
+* Search, filter by risk, sort (newest / by risk)
+* Re-analyze, open, live sandbox, view sanitized, copy URL, delete
+* Export **CSV/JSON**, import **JSON**
+* Public share page: `/public/:id?token=...`
 
-  * Search, filter by risk, sort (newest / by risk)
-  * Re-analyze, open, view sanitized, share public page
-  * Export CSV/JSON, import JSON
-  * Clear all
+### Keyboard
 
-
-* Keyboard shortcuts:
-
-  * `/` focuses the URL input
-  * `Ctrl+Enter` runs Analyze
-  * In History: “Show in analyzer” scrolls to top
+* `/` focuses the URL input
+* `Ctrl+Enter` runs Analyze
+* “Show in analyzer” scrolls the main view to top
 
 ---
 
@@ -61,212 +69,225 @@ It unshortens redirects, looks at basic risk signals, shows TLS/WHOIS/security h
 ```
 SafeLinkInspector/
 ├─ README.md
-├─ .github/
-│  └─ workflows/
-│     └─ gh-pages.yml              
+├─ .gitignore
+├─ docs/
+│  ├─ screenshot-analyzer.png
+│  └─ screenshot-live.png
 │
-├─ app/                               # Frontend (React + Vite)
+├─ app/                          # Frontend (React + Vite)
 │  ├─ index.html
-│  ├─ vite.config.js
 │  ├─ package.json
-│  ├─ .env.development                
-│  ├─ .env.production                
-│  ├─ styles.css
+│  ├─ vite.config.js
+│  ├─ .env.development           # VITE_API_BASE, VITE_LIVE_ORIGIN for dev
+│  ├─ .env.production            # values for production
 │  └─ src/
 │     ├─ main.jsx
-│     ├─ api.js
+│     ├─ App.jsx
+│     ├─ api.js                  # fetch helpers (analyze, apiGet, etc.)
+│     ├─ styles.css
 │     └─ components/
 │        ├─ Analyzer.jsx
 │        └─ History.jsx
 │
-├─ server/                            # Backend (Express)
-│  ├─ package.json
-│  ├─ vercel.json                     # Vercel config (serverless)
-│  ├─ api/
-│  │  └─ index.mjs                    # Vercel serverless entry (serverless-http)
-│  └─ src/
-│     ├─ index.mjs                    # Local dev entry (app.listen)
-│     ├─ app.mjs                      # Express app factory 
-│     ├─ liveServer.mjs               # Live sandbox proxy 
-│     ├─ store/
-│     │  └─ db.js
-│     └─ analyzer/
-│        ├─ forms.js
-│        ├─ headers.js
-│        ├─ netinfo.js
-│        ├─ reputation.js
-│        ├─ risk.js
-│        ├─ sanitize.js
-│        ├─ tls.js
-│        ├─ unshorten.js
-│        └─ whois.js
-│
-└─ docs/                             
-   ├─ screenshot-analyzer.png
-   └─ screenshot-live.png
-
+└─ server/                       # Backend (Express)
+   ├─ package.json
+   ├─ vercel.json              
+   └─ src/
+      ├─ index.mjs               # starts API + live sandbox server
+      ├─ liveServer.mjs          # sandbox proxy 
+      ├─ store/
+      │  └─ db.js                # simple JSON storage for history
+      └─ analyzer/
+         ├─ forms.js
+         ├─ headers.js
+         ├─ netinfo.js
+         ├─ reputation.js
+         ├─ risk.js
+         ├─ sanitize.js
+         ├─ tls.js
+         ├─ unshorten.js
+         ├─ vt.js
+         └─ whois.js
 ```
 
 ---
 
 ## Requirements
 
-* Node.js **20+** (works on Node 22 too)
-
+* Node.js **20+** (works with Node 22)
 ---
 
 ## Quick start (local dev)
 
-Open **two** terminals.
+Open **two** terminals (API starts Live too, so two is enough).
 
-### Terminal 1 - backend
+### 1) Backend
 
-```powershell
+```bash
 cd server
 npm install
 npm run dev
 ```
 
-* Default API URL: `http://localhost:4000`
+* API: `http://localhost:4000`
 * Health: `GET /api/health`
+* Live sandbox: `http://localhost:4080` (started from the API process)
 
-### Terminal 2 - live sandbox server
+### 2) Frontend
 
-The live server is started automatically by the API (`startLiveServer()` in `index.mjs`).
-
-Default live URL: `http://localhost:4080`
-
-### Terminal 3 – frontend (React/Vite)
-
-```powershell
+```bash
 cd app
 npm install
-# make sure app/.env points to live origin 
+# set API and Live origins
+# app/.env.development:
+#   VITE_API_BASE=http://localhost:4000
+#   VITE_LIVE_ORIGIN=http://localhost:4080
 npm run dev
 ```
 
-Vite will open: `http://localhost:5173`
+* Vite dev server: `http://localhost:5173`
 
 ---
 
 ## Environment variables
 
-### app/.env
+### app/.env(.development|.production)
 
 ```
+VITE_API_BASE=http://localhost:4000
 VITE_LIVE_ORIGIN=http://localhost:4080
 ```
 
-### server/.env (optional)
+### server/.env 
 
 ```
 PORT=4000
 LIVE_PORT=4080
 CACHE_TTL_MIN=15
+
+VT_API_KEY=            # VirusTotal
+GSB_API_KEY=           # Google Safe Browsing
+PHISHTANK_KEY=         # PhishTank
+URLSCAN_KEY=           # urlscan.io
+ABUSEIPDB_KEY=         # AbuseIPDB
+
+WHOIS_TTL_MS=86400000
+WHOIS_CACHE_MAX=200
+RDAP_TIMEOUT_MS=10000
+WHOIS_TIMEOUT_MS=10000
 ```
 
-If ports are busy, change them here and update `VITE_LIVE_ORIGIN` in the frontend.
+If ports are busy, change `PORT` and/or `LIVE_PORT`, and update the frontend `.env` accordingly.
 
 ---
 
-## How to download from Git
+## API endpoints (main)
 
-### Clone
+* `POST /api/analyze`
+  Body: `{ "url":"https://...", "options": { "nocache": false } }`
+  Returns analysis object: finalUrl, risk, reputation, tls, whois, net, security headers/cookies, heuristics, forms, sanitized link, etc.
+
+
+* `GET /api/history`
+  Query: `q`, `risk` (`low|medium|high|all`), `sort` (`newest|risk`), `skip`, `limit`
+
+
+* `GET /api/history/:id`
+
+
+* `DELETE /api/history/:id`
+
+
+* `DELETE /api/history`
+
+
+* `GET /api/history/export?fmt=csv|json`
+
+
+* `POST /api/history/import`
+  Body: JSON array of records
+
+
+* `GET /api/sanitized/:id`
+
+
+* `GET /public/:id?token=...`
+
+
+* Live sandbox:
+
+  * `GET /live?url=...`
+  * `GET /asset?url=...`
+
+---
+
+## Deploy
+
+### One repo branch with everything (recommended “main”)
+
+Just push the whole project folder:
 
 ```bash
 git clone https://github.com/Antot-12/SafeLinkInspector.git
 cd SafeLinkInspector
+git add .
+git commit -m "Initial"
+git push origin main
 ```
 
----
+### Frontend to **GitHub Pages** (on `gh-pages`)
 
-## Development notes
-
-### API endpoints (main)
-
-* `POST /api/analyze`
-  Body: `{ "url": "https://..." }`
-  Returns: analysis object with finalUrl, risk, headers, tls, whois, forms, sanitized path, etc.
-
-* `GET /api/history`
-  Query: `q`, `risk` (`low|medium|high|all`), `sort` (`newest|risk`), `skip`, `limit`
-  Returns: `{ items, total }`
-
-* `GET /api/history/:id`
-
-* `DELETE /api/history/:id`
-
-* `DELETE /api/history` (clear all)
-
-* `GET /api/history/export?fmt=csv|json`
-
-* `POST /api/history/import` (body: a JSON array of records)
-
-* `GET /api/sanitized/:id` (strict CSP view of the saved HTML)
-
-### Live sandbox 
-
-* `GET /live?url=...`
-  Returns rewritten HTML:
-
-  * removes site CSP/meta CSP and X-Frame headers
-  * injects `<base href="...">`
-  * neutralizes typical frame-busting (`top.location` → `window.location`, etc.)
-  * rewrites `href/src/action` to `/asset?url=...`
-
-
-* `GET /asset?url=...`
-  Fetches assets through the live server
-
-  * rewrites CSS `url(...)` to go via `/asset`
-  * strips `Set-Cookie`
-  * sends realistic User-Agent headers
-
-### Why “Live (sandboxed)” can be blank
-
-* Some pages require login or cookies to render.
-  The live proxy **strips cookies by design** for safety, so private pages may stay blank.
-* If the page uses heavy client protection, it can still block rendering inside iframes.
-
-Tip: test public pages first. If you really need to debug with cookies, add a temporary flag in `liveServer.mjs` to allow them (unsafe for general use).
-
----
-
-## Build for production
-
-This is a simple local tool, but you can still build the frontend:
+Build the app and publish the build output:
 
 ```bash
 cd app
+npm install
+# set production API/LIVE in app/.env.production:
+#   VITE_API_BASE=https://<your-vercel-api>.vercel.app
+#   VITE_LIVE_ORIGIN=https://<your-vercel-api>.vercel.app
 npm run build
-# output in app/dist
+cd ..
+
+git worktree add gh-pages
+rm -r -fo gh-pages/*         
+cp -r app/dist/* gh-pages/
+cd gh-pages
+git add .
+git commit -m "Publish to GitHub Pages"
+git push -u origin gh-pages
+cd ..
+git worktree remove gh-pages
 ```
 
-Serve `app/dist` behind any static server or connect it to the API with a reverse proxy.
+Then enable Pages in your repo settings → Pages → Branch `gh-pages`.
+
+### Backend to **Vercel** (on a separate branch, e.g. `backend-vercel`)
+
+1. Create a new branch, commit the `server/` content (and its `package.json`, `vercel.json`).
+2. On Vercel, “Import Project” from GitHub.
+3. Project settings:
+
+
+   * Root directory: `server`
+   * Node 20+
+   * Add your env vars (API keys, ports ignored on Vercel)
+
+4. Deploy - you’ll get `https://YOUR-API.vercel.app`.
+5. In GitHub Pages frontend, set:
+
+
+   * `VITE_API_BASE=https://YOUR-API.vercel.app`
+   * `VITE_LIVE_ORIGIN=https://YOUR-API.vercel.app`
+6. Re-build the frontend and push to `gh-pages`.
+
+> CORS: make sure your API allows the Pages origin (your `https://<user>.github.io` domain) in its CORS list.
 
 ---
 
-## Troubleshooting
+## Security model
 
-* **Live is white**
-  Check `VITE_LIVE_ORIGIN` points to the correct live server port.
-  Try a different, public URL. Some sites need login or strict cookies.
-
-
-* **Port in use**
-  Change `PORT` and/or `LIVE_PORT` in `server/.env`.
-  Change the frontend `VITE_LIVE_ORIGIN` accordingly.
-
-
-* **CORS**
-  Frontend runs on `5173` (or `5174`). The API’s CORS list includes those origins.
-
----
-
-## Security model 
-
-* Analyzer fetches target HTML on the server and saves a **sanitized** copy with very strict CSP.
-* Live viewer runs on a different origin and rewrites the page to avoid dangerous behaviors in iframes.
-* Cookies from target sites are not passed through to client.
+* The server fetches HTML, sanitizes it, and serves it with a very strict CSP for viewing.
+* The “Live (sandboxed)” view runs on a different origin. It removes CSP/meta-CSP and frame-busting, and rewrites asset URLs to flow through `/asset`.
+* No target-site cookies are exposed to the browser by default.
 
 ---
