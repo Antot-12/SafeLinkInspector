@@ -1,36 +1,42 @@
-import { mkdir } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
-import { Low } from 'lowdb';
-import { JSONFile } from 'lowdb/node';
+import { mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
+import { Low } from 'lowdb'
+import { JSONFile } from 'lowdb/node'
 
-const dbFile = join(process.cwd(), 'data', 'history.json');
-await mkdir(dirname(dbFile), { recursive: true });
+const DATA_DIR = process.env.VERCEL ? '/tmp' : join(process.cwd(), 'data')
+await mkdir(DATA_DIR, { recursive: true })
+const DB_FILE = join(DATA_DIR, 'db.json')
 
-const adapter = new JSONFile(dbFile);
-export const db = new Low(adapter, { history: [] });
-await db.read();
-if (!db.data) db.data = { history: [] };
+const adapter = new JSONFile(DB_FILE)
+const db = new Low(adapter, { items: [] })
+await db.read()
+if (!Array.isArray(db.data.items)) db.data.items = []
 
-export const addRecord = async (rec) => {
-  db.data.history.unshift(rec);
-  if (db.data.history.length > 300) db.data.history.length = 300;
-  await db.write();
-};
+export async function addRecord(rec) {
+  const idx = db.data.items.findIndex(x => x.id === rec.id)
+  if (idx >= 0) db.data.items[idx] = rec
+  else db.data.items.push(rec)
+  await db.write()
+  return rec
+}
 
-export const getAll = () => db.data.history;
-export const getById = (id) => db.data.history.find(r => r.id === id);
+export function getAll() {
+  return [...db.data.items].sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))
+}
 
-export const removeById = async (id) => {
-  const i = db.data.history.findIndex(r => r.id === id);
-  if (i >= 0) {
-    db.data.history.splice(i, 1);
-    await db.write();
-    return true;
-  }
-  return false;
-};
+export function getById(id) {
+  return db.data.items.find(x => x.id === id) || null
+}
 
-export const clearAll = async () => {
-  db.data.history = [];
-  await db.write();
-};
+export async function removeById(id) {
+  const before = db.data.items.length
+  db.data.items = db.data.items.filter(x => x.id !== id)
+  const changed = db.data.items.length !== before
+  if (changed) await db.write()
+  return changed
+}
+
+export async function clearAll() {
+  db.data.items = []
+  await db.write()
+}

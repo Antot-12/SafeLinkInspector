@@ -209,7 +209,19 @@ app.post("/api/analyze", async (req, res) => {
   const ptP = phishTankCheck(finalUrl);
   const usP = urlscanCheck(finalUrl);
 
-  const [vt, tls, whois, ipinfo, gsb, pt, urlscan] = await Promise.all([vtP, tlsP, whoisP, ipP, gsbP, ptP, usP]);
+  const [vt, tls, whois, ipinfo, gsb, pt, urlscan, urlhaus, tfox, openphish, dbl] = await Promise.all([
+  vtCheck(finalUrl),
+  getTlsProfile(finalUrl),
+  getWhoisAge(finalUrl),
+  getIpInfo(finalUrl),
+  safeBrowsingCheck(finalUrl),
+  phishTankCheck(finalUrl),
+  urlscanCheck(finalUrl),
+  urlhausCheck(finalUrl),
+  threatFoxCheck(new URL(finalUrl).hostname),
+  openPhishCheck(finalUrl),
+  spamhausDblCheck(new URL(finalUrl).hostname)
+])
 
   let title = "";
   let description = "";
@@ -280,7 +292,7 @@ app.post("/api/analyze", async (req, res) => {
     whois,
     net: ipinfo,
     security: { hsts, httpToHttps, headers: headersProfile, cookies },
-    reputation: { gsb, phishTank: pt, urlscan },
+    reputation: { gsb, phishTank: pt, urlscan, urlhaus, threatFox: tfox, openPhish: openphish, spamhaus: dbl },
     contentType,
     title,
     description,
