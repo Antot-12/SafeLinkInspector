@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { analyze } from '../api'
 
+const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/+$/,'')
 const LIVE_ORIGIN = (import.meta.env.VITE_LIVE_ORIGIN || '').replace(/\/+$/,'')
 
 function StatusDot({ state }) {
@@ -38,7 +39,7 @@ export default function Analyzer(){
     const p = new URLSearchParams(location.search)
     const id = p.get('id')
     if (!id) return
-    fetch(`/api/history/${id}`)
+    fetch(`${API_BASE}/api/history/${id}`)
       .then(r=>r.json())
       .then(data=>{
         if (data && !data.error){
@@ -77,7 +78,7 @@ export default function Analyzer(){
     if (res.screenshot) availableTabs.push('screenshot')
     availableTabs.push('live')
     if (!availableTabs.includes(tab)) setTab(availableTabs[0] || 'live')
-  },[res]) 
+  },[res]) // eslint-disable-line
 
   const doAnalyze = async (nocache)=>{
     const normalized = normalizeInput(url)
@@ -87,7 +88,6 @@ export default function Analyzer(){
     try {
       const data = await analyze(normalized, { nocache })
       setRes(data)
-      window.dispatchEvent(new CustomEvent('safelink:history-refresh', { detail: { id: data.id, finalUrl: data.finalUrl } }))
     } catch(e){
       const msg = typeof e?.message === 'string' ? e.message : 'Failed to analyze'
       setError(msg)
@@ -178,10 +178,6 @@ export default function Analyzer(){
                 {repChip('GSB', res.reputation?.gsb)}
                 {repChip('PhishTank', res.reputation?.phishTank)}
                 {repChip('urlscan', res.reputation?.urlscan)}
-			 {repChip('URLhaus', res.reputation?.urlhaus)}
-			 {repChip('ThreatFox', res.reputation?.threatFox)}
-			 {repChip('OpenPhish', res.reputation?.openPhish)}
-			 {repChip('Spamhaus', res.reputation?.spamhaus)}
               </span>
             </div>
 
@@ -236,31 +232,16 @@ export default function Analyzer(){
 
           <div className="tabs" role="tablist" aria-label="Views">
             {res.screenshot && (
-              <div
-                role="tab"
-                aria-selected={tab==='screenshot'}
-                className={`tab ${tab==='screenshot'?'active':''}`}
-                onClick={()=>setTab('screenshot')}
-              >
+              <div role="tab" aria-selected={tab==='screenshot'} className={`tab ${tab==='screenshot'?'active':''}`} onClick={()=>setTab('screenshot')}>
                 Screenshot
               </div>
             )}
             {res.sanitized && (
-              <div
-                role="tab"
-                aria-selected={tab==='sanitized'}
-                className={`tab ${tab==='sanitized'?'active':''}`}
-                onClick={()=>setTab('sanitized')}
-              >
+              <div role="tab" aria-selected={tab==='sanitized'} className={`tab ${tab==='sanitized'?'active':''}`} onClick={()=>setTab('sanitized')}>
                 Sanitized HTML
               </div>
             )}
-            <div
-              role="tab"
-              aria-selected={tab==='live'}
-              className={`tab ${tab==='live'?'active':''}`}
-              onClick={()=>setTab('live')}
-            >
+            <div role="tab" aria-selected={tab==='live'} className={`tab ${tab==='live'?'active':''}`} onClick={()=>setTab('live')}>
               Live (sandboxed)
             </div>
           </div>
@@ -271,7 +252,12 @@ export default function Analyzer(){
 
           {tab==='sanitized' && (
             res.sanitized
-              ? <iframe src={res.sanitized} sandbox="" style={{ width:'100%', height:480, border:'1px solid #1b2733', borderRadius:12 }} title="Sanitized preview"></iframe>
+              ? <iframe
+                  src={`${API_BASE}${res.sanitized.startsWith('/') ? res.sanitized : `/${res.sanitized}`}`}
+                  sandbox=""
+                  style={{ width:'100%', height:480, border:'1px solid #1b2733', borderRadius:12 }}
+                  title="Sanitized preview"
+                />
               : <div className="text-muted">No sanitized preview.</div>
           )}
 
@@ -280,7 +266,7 @@ export default function Analyzer(){
               ? (LIVE_ORIGIN
                   ? <iframe
                       src={`${LIVE_ORIGIN}/live?url=${encodeURIComponent(res.finalUrl)}`}
-                      sandbox="allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation allow-same-origin allow-popups-to-escape-sandbox allow-downloads"
+                      sandbox="allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation allow-same-origin"
                       style={{ width:'100%', height:480, border:'1px solid #1b2733', borderRadius:12 }}
                       title="Live sandboxed view"
                     />

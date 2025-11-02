@@ -282,7 +282,7 @@ Then enable Pages in your repo settings → Pages → Branch `gh-pages`.
 
 > CORS: make sure your API allows the Pages origin (your `https://<user>.github.io` domain) in its CORS list.
 
----
+--- 
 
 ## Security model
 

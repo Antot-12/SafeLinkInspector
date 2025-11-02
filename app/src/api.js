@@ -1,5 +1,3 @@
-// app/src/api.js
-
 const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '')
 
 const joinUrl = (p) => `${API_BASE}${p.startsWith('/') ? p : `/${p}`}`
@@ -8,11 +6,11 @@ function delay(ms) { return new Promise(r => setTimeout(r, ms)) }
 
 async function request(path, {
   method = 'GET',
-  json,           // object to JSON.stringify
-  body,           // raw body (if not json)
+  json,
+  body,
   headers = {},
   timeoutMs = 15000,
-  retry = 0,      // small retry count for GET/DELETE
+  retry = 0,
 } = {}) {
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), timeoutMs)
@@ -84,16 +82,24 @@ function normalizeErr(e) {
   return err
 }
 
-// Public helpers
+function absolutizeServerPath(p) {
+  if (!p || typeof p !== 'string') return p
+  if (/^https?:\/\//i.test(p)) return p
+  return joinUrl(p)
+}
 
 export async function analyze(url, options = {}, opts = {}) {
-  return request('/api/analyze', {
+  const data = await request('/api/analyze', {
     method: 'POST',
     json: { url, options },
     timeoutMs: opts.timeoutMs ?? 30000,
     retry: 0,
     headers: opts.headers
   })
+  if (data && typeof data === 'object') {
+    if (data.sanitized) data.sanitized = absolutizeServerPath(data.sanitized)
+  }
+  return data
 }
 
 export async function apiGet(path, opts = {}) {
@@ -124,7 +130,6 @@ export async function apiPost(path, body, opts = {}) {
   })
 }
 
-// Download helper for CSV/JSON exports
 export async function apiDownload(path, filename) {
   const url = joinUrl(path)
   const r = await fetch(url)
@@ -145,3 +150,5 @@ function deriveFilenameFromHeaders(headers) {
   const m = cd.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i)
   return m ? decodeURIComponent(m[1]) : null
 }
+
+export { joinUrl, absolutizeServerPath }
